@@ -1,0 +1,25 @@
+data_file: "data/C_Xhp_5k.npy"
+out_file: "out"
+
+l1:
+  - 0.1
+tau_init: 0.5
+eps: 1e-7
+
+max_outer: 100
+max_inner: 10
+
+#cfg for big data
+row_min: 0
+row_max: 5000
+row_divide: 0
+total_process: 0
+# label_start: 0
+
+log_file: out
+log_interval: 10
+
+# resume:
+# resume_from_whole: 
+CUDA: False
+float64: True
