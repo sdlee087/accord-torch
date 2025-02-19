@@ -63,10 +63,7 @@ def pyaccord(X, lamb, cfg, logger, part = (0,0), omega_old = None, label = 0, de
             Q = g_old + torch.sum(D * grad) + torch.norm(D, p='fro')**2 / (2.0 * tau)
             nnz = torch.sum(omega != 0.0)
             if g_new < Q:
-                # if i % log_interval == 0:
-                    #logger.info("Round {i:03d}.{j:02d}: tau = {tau:10.4f}, g = {g_new:10.4f}, Q = {Q:10.4f}, nnz = {nnz:d}".format(i=i, j=j, tau=tau, g_new=g_new, Q=Q, nnz=nnz))
-                    # f = g_new -torch.log(omega_d).sum() + lamb*(torch.linalg.vector_norm(omega, ord = 1) - torch.linalg.vector_norm(omega_d, ord = 1))
-                    # logger.info("Round {i:03d}.{j:02d}: tau = {tau:10.4f}, f={f:10.4f}, g = {g_new:10.4f}, Q = {Q:10.4f}, nnz = {nnz:d}".format(i=i, j=j, tau=tau, f=f, g_new=g_new, Q=Q, nnz=nnz))
+                #logger.info("Round {i:03d}.{j:02d}: tau = {tau:10.4f}, g = {g_new:10.4f}, Q = {Q:10.4f}, nnz = {nnz:d}".format(i=i, j=j, tau=tau, g_new=g_new, Q=Q, nnz=nnz))
                 break
             tau *= 0.5
 
@@ -161,10 +158,7 @@ def pyaccord_sp(X, lamb, cfg, logger, part = (0,0), omega_old = None, label = 0,
             Q = g_old + torch.sum((D * grad).values()) + torch.norm(D.values(), p='fro')**2 / (2.0 * tau)
             nnz = len(indices[0])
             if g_new < Q:
-                # if i % log_interval == 0:
-                    #logger.info("Round {i:03d}.{j:02d}: tau = {tau:10.4f}, g = {g_new:10.4f}, Q = {Q:10.4f}, nnz = {nnz:d}".format(i=i, j=j, tau=tau, g_new=g_new, Q=Q, nnz=nnz))
-                    # f = g_new -torch.log(omega_d).sum() + lamb*(torch.linalg.vector_norm(omega.coalesce().values(), ord = 1) - torch.linalg.vector_norm(omega_d, ord = 1))
-                    # logger.info("Round {i:03d}.{j:02d}: tau = {tau:10.4f}, f={f:10.4f}, g = {g_new:10.4f}, Q = {Q:10.4f}, nnz = {nnz:d}".format(i=i, j=j, tau=tau, f=f, g_new=g_new, Q=Q, nnz=nnz))
+                #logger.info("Round {i:03d}.{j:02d}: tau = {tau:10.4f}, g = {g_new:10.4f}, Q = {Q:10.4f}, nnz = {nnz:d}".format(i=i, j=j, tau=tau, g_new=g_new, Q=Q, nnz=nnz))
                 break
             tau *= 0.5
 

@@ -52,20 +52,21 @@ def partition_range(start, stop, num_partitions):
     
     return partitions
 
-def run_process(queue, row_id, lamb, parts):
-    proc_id = queue.get()
-    logger = setup_logger(cfg, proc_id)
-    device = torch.device(f"cuda:{proc_id}" if cfg["CUDA"] and torch.cuda.is_available() else "cpu")
+def run_process(queue, semaphore, row_id, lamb, parts):
+    with semaphore:
+        proc_id = queue.get()
+        logger = setup_logger(cfg, proc_id)
+        device = torch.device(f"cuda:{proc_id}" if cfg["CUDA"] and torch.cuda.is_available() else "cpu")
 
-    omega_old = None
-    if cfg["resume_from_whole"] is not None:
-        whole_omega = sparse.load_npz(cfg["resume_from_whole"])
-        omega_old = (whole_omega[parts[row_id][0]:parts[row_id][1],:]).todense().type(flt).to(device)
+        omega_old = None
+        if cfg["resume_from_whole"] is not None:
+            whole_omega = sparse.load_npz(cfg["resume_from_whole"])
+            omega_old = (whole_omega[parts[row_id][0]:parts[row_id][1],:]).todense().type(flt).to(device)
 
-    logger.info(f"Process {row_id} Start.")
-    pyaccord(torch.from_numpy(X).type(flt).to(device), lamb, cfg, logger, part = parts[row_id], omega_old = omega_old, label = row_id + cfg["label_start"], device = device)
-    logger.info(f"Process {row_id} Complete.")
-    queue.put(proc_id)
+        logger.info(f"Process {row_id} Start.")
+        pyaccord(torch.from_numpy(X).type(flt).to(device), lamb, cfg, logger, part = parts[row_id], omega_old = omega_old, label = row_id + cfg["label_start"], device = device)
+        logger.info(f"Process {row_id} Complete.")
+        queue.put(proc_id)
 
 if __name__ == "__main__":
     lambs = cfg["l1"]
@@ -82,10 +83,11 @@ if __name__ == "__main__":
             proc_queue = mp.Queue()
             for i in range(cfg["total_process"]):
                 proc_queue.put(i)
+            semaphore = mp.Semaphore(cfg["total_process"])
             processes = []
             parts = partition_range(cfg["row_min"], cfg["row_max"], cfg["row_divide"])
             for i in range(cfg["row_divide"]):
-                p = mp.Process(target=run_process, args = (proc_queue, i, lamb, parts))
+                p = mp.Process(target=run_process, args = (proc_queue, semaphore, i, lamb, parts))
                 p.start()
                 processes.append(p)
 

@@ -53,21 +53,22 @@ def partition_range(start, stop, num_partitions):
     
     return partitions
 
-def run_process(queue, row_id, lamb, parts):
-    proc_id = queue.get()
-    logger = setup_logger(cfg, proc_id)
-    logger.info("Start Time: %s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    device = torch.device(f"cuda:{proc_id}" if cfg["CUDA"] and torch.cuda.is_available() else "cpu")
+def run_process(queue, semaphore, row_id, lamb, parts):
+    with semaphore:
+        proc_id = queue.get()
+        logger = setup_logger(cfg, proc_id)
+        logger.info("Start Time: %s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        device = torch.device(f"cuda:{proc_id}" if cfg["CUDA"] and torch.cuda.is_available() else "cpu")
 
-    omega_old = None
-    if cfg["resume_from_whole"] is not None:
-        whole_omega = sparse.load_npz(cfg["resume_from_whole"])
-        omega_old = scipy_csr_to_torch_coo(whole_omega[parts[row_id][0]:parts[row_id][1],:], dtype=flt, device = device)
+        omega_old = None
+        if cfg["resume_from_whole"] is not None:
+            whole_omega = sparse.load_npz(cfg["resume_from_whole"])
+            omega_old = scipy_csr_to_torch_coo(whole_omega[parts[row_id][0]:parts[row_id][1],:], dtype=flt, device = device)
 
-    logger.info(f"Process {row_id} Start.")
-    pyaccord_sp(torch.from_numpy(X).type(flt).to(device), lamb, cfg, logger, part = parts[row_id], omega_old = omega_old, label = row_id + cfg["label_start"], device = device)
-    logger.info(f"Process {row_id} Complete.")
-    queue.put(proc_id)
+        logger.info(f"Process {row_id} Start.")
+        pyaccord_sp(torch.from_numpy(X).type(flt).to(device), lamb, cfg, logger, part = parts[row_id], omega_old = omega_old, label = row_id + cfg["label_start"], device = device)
+        logger.info(f"Process {row_id} Complete.")
+        queue.put(proc_id)
 
 if __name__ == "__main__":
     lambs = cfg["l1"]
@@ -87,9 +88,10 @@ if __name__ == "__main__":
             for i in range(cfg["total_process"]):
                 proc_queue.put(i)
             processes = []
+            semaphore = mp.Semaphore(cfg["total_process"])
             parts = partition_range(cfg["row_min"], cfg["row_max"], cfg["row_divide"])
             for i in range(cfg["row_divide"]):
-                p = mp.Process(target=run_process, args = (proc_queue, i, lamb, parts))
+                p = mp.Process(target=run_process, args = (proc_queue, semaphore, i, lamb, parts))
                 p.start()
                 processes.append(p)
 
