@@ -60,7 +60,7 @@ def run_process(queue, row_id, lamb, parts):
     omega_old = None
     if cfg["resume_from_whole"] is not None:
         whole_omega = sparse.load_npz(cfg["resume_from_whole"])
-        omega_old = (whole_omega[parts[0]:parts[1],:]).todense().type(flt).to(device)
+        omega_old = (whole_omega[parts[row_id][0]:parts[row_id][1],:]).todense().type(flt).to(device)
 
     logger.info(f"Process {row_id} Start.")
     pyaccord(torch.from_numpy(X).type(flt).to(device), lamb, cfg, logger, part = parts[row_id], omega_old = omega_old, label = row_id + cfg["label_start"], device = device)

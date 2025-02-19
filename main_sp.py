@@ -3,6 +3,7 @@ from scipy import sparse
 import torch
 import torch.multiprocessing as mp
 import argparse, yaml
+from datetime import datetime
 
 from src.pyaccord import pyaccord_sp
 from src.logger import setup_logger
@@ -55,12 +56,13 @@ def partition_range(start, stop, num_partitions):
 def run_process(queue, row_id, lamb, parts):
     proc_id = queue.get()
     logger = setup_logger(cfg, proc_id)
+    logger.info("Start Time: %s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     device = torch.device(f"cuda:{proc_id}" if cfg["CUDA"] and torch.cuda.is_available() else "cpu")
 
     omega_old = None
     if cfg["resume_from_whole"] is not None:
         whole_omega = sparse.load_npz(cfg["resume_from_whole"])
-        omega_old = scipy_csr_to_torch_coo(whole_omega[parts[0]:parts[1],:], dtype=flt, device = device)
+        omega_old = scipy_csr_to_torch_coo(whole_omega[parts[row_id][0]:parts[row_id][1],:], dtype=flt, device = device)
 
     logger.info(f"Process {row_id} Start.")
     pyaccord_sp(torch.from_numpy(X).type(flt).to(device), lamb, cfg, logger, part = parts[row_id], omega_old = omega_old, label = row_id + cfg["label_start"], device = device)
@@ -72,6 +74,7 @@ if __name__ == "__main__":
     for lamb in lambs:
         if cfg["row_divide"] == 0:
             logger = setup_logger(cfg, 0)
+            logger.info("Start Time: %s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             device = torch.device(f"cuda" if cfg["CUDA"] and torch.cuda.is_available() else "cpu")
             omega_old = None
             if cfg["resume_from_whole"] is not None:
