@@ -11,6 +11,7 @@ from src.logger import setup_logger
 DEFAULT_CONFIG={
     "l1": [0.1],
     "eps": 1e-7,
+    "beta": 0.5,
     "tau_init": 0.5,
     "max_outer": 100,
     "max_inner": 10,
