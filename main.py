@@ -32,8 +32,6 @@ with open(args.config) as f:
 
 cfg = {**DEFAULT_CONFIG, **config}
 flt = torch.float64 if cfg["float64"] else torch.float32
-X = np.load(cfg["data_file"])
-X = (X - np.mean(X, axis = 0))/np.std(X, axis = 0)
 
 def partition_range(start, stop, num_partitions):
     """
@@ -54,6 +52,7 @@ def partition_range(start, stop, num_partitions):
 
 def run_process(queue, semaphore, row_id, lamb, parts):
     with semaphore:
+        X = np.load(cfg["data_file"])
         proc_id = queue.get()
         logger = setup_logger(cfg, proc_id)
         device = torch.device(f"cuda:{proc_id}" if cfg["CUDA"] and torch.cuda.is_available() else "cpu")
@@ -72,6 +71,7 @@ if __name__ == "__main__":
     lambs = cfg["l1"]
     for lamb in lambs:
         if cfg["row_divide"] == 0:
+            X = np.load(cfg["data_file"])
             logger = setup_logger(cfg, 0)
             device = torch.device(f"cuda" if cfg["CUDA"] and torch.cuda.is_available() else "cpu")
             omega_old = None

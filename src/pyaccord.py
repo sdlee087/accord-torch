@@ -9,6 +9,7 @@ def pyaccord(X, lamb, cfg, logger, part = (0,0), omega_old = None, label = 0, de
     outer_iter = int(cfg["max_outer"])
     inner_iter = int(cfg["max_inner"])
     eps = float(cfg["eps"])
+    beta = float(cfg["beta"])
     log_interval = int(cfg["log_interval"])
     flt = torch.float64 if cfg["float64"] else torch.float32
 
@@ -66,7 +67,7 @@ def pyaccord(X, lamb, cfg, logger, part = (0,0), omega_old = None, label = 0, de
             if g_new < Q:
                 #logger.info("Round {i:03d}.{j:02d}: tau = {tau:10.4f}, g = {g_new:10.4f}, Q = {Q:10.4f}, nnz = {nnz:d}".format(i=i, j=j, tau=tau, g_new=g_new, Q=Q, nnz=nnz))
                 break
-            tau *= 0.5
+            tau *= beta
 
         if torch.max(abs(D)).item() <= eps:
             g_old = 0.5 * torch.norm(Y, p='fro')**2 / n
@@ -93,6 +94,7 @@ def pyaccord_sp(X, lamb, cfg, logger, part = (0,0), omega_old = None, label = 0,
     outer_iter = int(cfg["max_outer"])
     inner_iter = int(cfg["max_inner"])
     eps = float(cfg["eps"])
+    beta = float(cfg["beta"])
     log_interval = int(cfg["log_interval"])
     flt = torch.float64 if cfg["float64"] else torch.float32
 
@@ -164,7 +166,7 @@ def pyaccord_sp(X, lamb, cfg, logger, part = (0,0), omega_old = None, label = 0,
             if g_new < Q:
                 #logger.info("Round {i:03d}.{j:02d}: tau = {tau:10.4f}, g = {g_new:10.4f}, Q = {Q:10.4f}, nnz = {nnz:d}".format(i=i, j=j, tau=tau, g_new=g_new, Q=Q, nnz=nnz))
                 break
-            tau *= 0.5
+            tau *= beta
 
         # check for progression in the iterate
         if torch.max(abs(D.values())).item() <= eps:
@@ -200,7 +202,7 @@ def pyaccord_sp(X, lamb, cfg, logger, part = (0,0), omega_old = None, label = 0,
     return omega, False
 
 def diag_intersection_sum(omega_d, a, b, c, d):
-    diag_ind = torch.arange(a,b)
+    diag_ind = torch.arange(a,b, device = omega_d.device)
     diag_mask = (diag_ind >= c) & (diag_ind < d)
     values = omega_d[diag_mask]
     return torch.sum(values) if values.numel() > 0 else 0.0
@@ -210,13 +212,14 @@ def pyaccord_sp_block(X, lamb, cfg, logger, part = (0,0), omega_old = None, labe
     outer_iter = int(cfg["max_outer"])
     inner_iter = int(cfg["max_inner"])
     eps = float(cfg["eps"])
+    beta = float(cfg["beta"])
     log_interval = int(cfg["log_interval"])
     flt = torch.float64 if cfg["float64"] else torch.float32
 
     n, p = X.shape
     split = cfg["split"]
     block_n = len(lamb)
-    split = [0] + split + [p]
+    split = torch.tensor([0] + split + [p], device = device)
     assert block_n + 1 == len(split)
 
     # compute for all entries in default
@@ -260,17 +263,25 @@ def pyaccord_sp_block(X, lamb, cfg, logger, part = (0,0), omega_old = None, labe
             o_tilde = - tau*grad + omega_old
             omega_d = (o_tilde.diagonal(d_off) + torch.sqrt((o_tilde.diagonal(d_off))**2 + 4.0*tau))*0.5
             o_tilde.diagonal(d_off).copy_(0.)
+            block_indices = torch.bucketize(torch.arange(p, device = device), split, right=True) - 1
+            thresholds = torch.tensor(lamb, device = device)[block_indices] * tau
 
-            pos_mask = torch.full(shape, False, dtype=torch.bool)
-            neg_mask = torch.full(shape, False, dtype=torch.bool)
+            pos_mask = o_tilde >= thresholds
+            neg_mask = o_tilde <= -thresholds
 
-            for k in range(block_n):
-                slice_k = slice(split[k], split[k+1])
-                pos_mask[:, slice_k] = o_tilde[:, slice_k] >= lamb[k] * tau
-                o_tilde[:, slice_k][pos_mask[:, slice_k]] -= lamb[k] * tau
+            o_tilde[pos_mask] -= torch.cat([thresholds[pos_mask[i]] for i in range(b_size)])
+            o_tilde[neg_mask] += torch.cat([thresholds[neg_mask[i]] for i in range(b_size)])
 
-                neg_mask[:, slice_k] = o_tilde[:, slice_k] <= -lamb[k] * tau
-                o_tilde[:, slice_k][neg_mask[:, slice_k]] += lamb[k] * tau
+            # pos_mask = torch.full(shape, False, dtype=torch.bool)
+            # neg_mask = torch.full(shape, False, dtype=torch.bool)
+
+            # for k in range(block_n):
+            #     slice_k = slice(split[k], split[k+1])
+            #     pos_mask[:, slice_k] = o_tilde[:, slice_k] >= lamb[k] * tau
+            #     o_tilde[:, slice_k][pos_mask[:, slice_k]] -= lamb[k] * tau
+
+            #     neg_mask[:, slice_k] = o_tilde[:, slice_k] <= -lamb[k] * tau
+            #     o_tilde[:, slice_k][neg_mask[:, slice_k]] += lamb[k] * tau
 
             pos_mask |= neg_mask
             pos_mask.diagonal(d_off).copy_(True)
@@ -290,7 +301,7 @@ def pyaccord_sp_block(X, lamb, cfg, logger, part = (0,0), omega_old = None, labe
             if g_new < Q:
                 #logger.info("Round {i:03d}.{j:02d}: tau = {tau:10.4f}, g = {g_new:10.4f}, Q = {Q:10.4f}, nnz = {nnz:d}".format(i=i, j=j, tau=tau, g_new=g_new, Q=Q, nnz=nnz))
                 break
-            tau *= 0.5
+            tau *= beta
 
         # check for progression in the iterate
         if torch.max(abs(D.values())).item() <= eps:
@@ -303,7 +314,7 @@ def pyaccord_sp_block(X, lamb, cfg, logger, part = (0,0), omega_old = None, labe
             logger.info("Round {i:03d}.{j:02d}: tau = {tau:10.4f}, f={f:10.4f}, g = {g_new:10.4f}, Q = {Q:10.4f}, nnz = {nnz:d}".format(i=i, j=j, tau=tau, f=f, g_new=g_new, Q=Q, nnz=nnz))
 
             logger.info("Saving Results")
-            sparse.save_npz("%s_%s_%s" % (cfg["out_file"], round(lamb*100), label), torch_coo_to_scipy_csr(omega.cpu().coalesce()))
+            sparse.save_npz("%s_%s_%s_%s" % (cfg["out_file"], round(lamb[0]*100), round(lamb[1]*100), label), torch_coo_to_scipy_csr(omega.cpu().coalesce()))
             logger.info("Saving Complete!")
             return omega, True
         
