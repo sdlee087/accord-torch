@@ -125,6 +125,7 @@ def pyaccord_sp(X, lamb, cfg, logger, part = (0,0), omega_old = None, label = 0,
     logger.info("Iterate size: (%d, %d)" % omega.size())
     logger.info("L1 penalty: %.2f" % lamb)
     logger.info("Starting from: %d" % d_off)
+    logger.info("Label: %d" % label)
     logger.info("Omega_nnz: %d" % len(omega_old.coalesce().values()))
 
     # main loop
@@ -248,6 +249,7 @@ def pyaccord_sp_block(X, lamb, cfg, logger, part = (0,0), omega_old = None, labe
     logger.info(f"L1 penalty: {lamb}")
     logger.info("Starting from: %d" % d_off)
     logger.info("Omega_nnz: %d" % len(omega_old.coalesce().values()))
+    logger.info("Label: %d" % label)
 
     # main loop
     Y = torch.matmul(omega_old, XT)

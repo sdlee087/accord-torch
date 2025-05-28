@@ -6,7 +6,7 @@ import argparse, yaml, logging, sys
 from datetime import datetime
 
 from src.pyaccord import pyaccord_sp
-from src.logger import setup_logger, setup_main_logger
+from src.logger import setup_logger, setup_main_logger, is_stdout_in_logger
 from src.util import scipy_csr_to_torch_coo
 
 DEFAULT_CONFIG={
@@ -63,8 +63,8 @@ def run_process(queue, results_queue, semaphore, main_logger, row_id, lamb, part
             logger.info("Start Time: %s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             device = torch.device(f"cuda:{proc_id}" if cfg["CUDA"] and torch.cuda.is_available() else "cpu")
 
-            omega_old = None
-            #omega_old = scipy_csr_to_torch_coo(sparse.load_npz("%s_%s_%s.npz" % (cfg["resume"], round(lamb*100 + 3), row_id + cfg["label_start"])), dtype = flt, device = device)
+            #omega_old = None
+            omega_old = scipy_csr_to_torch_coo(sparse.load_npz("%s_%s_%s.npz" % (cfg["resume"], round(lamb*100 + 3), row_id + cfg["label_start"])), dtype = flt, device = device)
             if cfg["resume_from_whole"] is not None:
                 whole_omega = sparse.load_npz(cfg["resume_from_whole"])
                 omega_old = scipy_csr_to_torch_coo(whole_omega[parts[row_id][0]:parts[row_id][1],:], dtype=flt, device = device)
@@ -84,9 +84,10 @@ if __name__ == "__main__":
     if cfg["row_divide"] == 0:
         for lamb in lambs:
             logger = setup_logger(cfg, lamb, 0)
-            ch = logging.StreamHandler(sys.stdout)
-            ch.setLevel(logging.DEBUG)
-            logger.addHandler(ch)
+            if not is_stdout_in_logger(logger):
+                ch = logging.StreamHandler(sys.stdout)
+                ch.setLevel(logging.DEBUG)
+                logger.addHandler(ch)
 
             X = np.load(cfg["data_file"])
             logger.info("Start Time: %s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"))

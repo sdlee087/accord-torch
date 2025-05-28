@@ -30,3 +30,5 @@ MANIFEST
 .DS_Store
 *.log
 .ipynb_checkpoints
+data/
+project/

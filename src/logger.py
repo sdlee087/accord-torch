@@ -13,7 +13,7 @@ class RelativeSecondsFormatter(logging.Formatter):
         return super().format(record)
     
 def setup_logger(cfg, lamb, log_id):
-    log_filename = f"{cfg['log_file']}_{round(lamb * 100)}_{log_id}.log"
+    log_filename = f"{cfg['log_file']}_{round(float(lamb) * 100)}_{log_id}.log"
     logger = logging.getLogger(f"relative_seconds_{log_id}")
     logger.setLevel(logging.DEBUG)
 
@@ -92,3 +92,10 @@ def setup_child_logger(queue):
         logger.addHandler(queue_handler)
 
     return logger
+
+def is_stdout_in_logger(logger):
+    for handler in logger.handlers:
+        # Check if the handler has a `stream` attribute and it's sys.stdout
+        if hasattr(handler, 'stream') and handler.stream == sys.stdout:
+            return True
+    return False

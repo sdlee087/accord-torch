@@ -2,11 +2,11 @@ import numpy as np
 from scipy import sparse
 import torch
 import torch.multiprocessing as mp
-import argparse, yaml
+import argparse, yaml, logging, sys
 from datetime import datetime
 
 from src.pyaccord import pyaccord_sp_block
-from src.logger import setup_logger, setup_main_logger
+from src.logger import setup_logger, setup_main_logger, is_stdout_in_logger
 from src.util import scipy_csr_to_torch_coo
 
 DEFAULT_CONFIG={
@@ -105,7 +105,11 @@ if __name__ == "__main__":
         lam = tuple(float(item.strip()) for item in lamb.split(','))
         if cfg["row_divide"] == 0:
             X = np.load(cfg["data_file"])
-            logger = setup_logger(cfg, lamb[1], 0)
+            logger = setup_logger(cfg, lam[0], 0)
+            if not is_stdout_in_logger(logger):
+                ch = logging.StreamHandler(sys.stdout)
+                ch.setLevel(logging.DEBUG)
+                logger.addHandler(ch)
             logger.info("Start Time: %s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             device = torch.device(f"cuda" if cfg["CUDA"] and torch.cuda.is_available() else "cpu")
             omega_old = None
