@@ -5,12 +5,12 @@ import torch.multiprocessing as mp
 import argparse, yaml, logging, sys
 from datetime import datetime
 
-from src.pyaccord import pyaccord_sp_block
+from src.pyaccord import pyaccord_sp, pyaccord_sp_block
 from src.logger import setup_logger, setup_main_logger, is_stdout_in_logger
 from src.util import scipy_csr_to_torch_coo
 
 DEFAULT_CONFIG={
-    "l1": ['0.1,0.1'],
+    "l1": ['0.1'],
     "beta": 0.5,
     "eps": 1e-7,
     "beta": 0.5,
@@ -18,10 +18,14 @@ DEFAULT_CONFIG={
     "max_outer": 100,
     "max_inner": 10,
     "row_divide": 0,
+    "row_min": 0,
+    "row_max": 0,
     "label_start": 0,
     "log_interval": 1,
     "resume": None,
     "resume_from_whole": None,
+    "split": None,
+    "resume_from_prev": False,
     "total_process": 1,
     "CUDA": False,
     "float64": False
@@ -36,6 +40,11 @@ with open(args.config) as f:
 
 cfg = {**DEFAULT_CONFIG, **config}
 flt = torch.float64 if cfg["float64"] else torch.float32
+
+if cfg["split"] is None:
+    pyaccord = pyaccord_sp
+else:
+    pyaccord = pyaccord_sp_block
 
 def partition_range(start, stop, num_partitions):
     """
@@ -54,24 +63,6 @@ def partition_range(start, stop, num_partitions):
     
     return partitions
 
-# def run_process(queue, semaphore, row_id, lamb, parts):
-#     with semaphore:
-#         X = np.load(cfg["data_file"])
-#         #X = (X - np.mean(X, axis = 0))/np.std(X, axis = 0)
-#         proc_id = queue.get()
-#         logger = setup_logger(cfg, proc_id)
-#         logger.info("Start Time: %s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-#         device = torch.device(f"cuda:{proc_id}" if cfg["CUDA"] and torch.cuda.is_available() else "cpu")
-
-#         omega_old = None
-#         if cfg["resume_from_whole"] is not None:
-#             whole_omega = sparse.load_npz(cfg["resume_from_whole"])
-#             omega_old = scipy_csr_to_torch_coo(whole_omega[parts[row_id][0]:parts[row_id][1],:], dtype=flt, device = device)
-
-#         logger.info(f"Process {row_id} Start.")
-#         pyaccord_sp_block(torch.from_numpy(X).type(flt).to(device), lamb, cfg, logger, part = parts[row_id], omega_old = omega_old, label = row_id + cfg["label_start"], device = device)
-#         logger.info(f"Process {row_id} Complete.")
-#         queue.put(proc_id)
 
 def run_process(queue, results_queue, semaphore, main_logger, row_id, lamb, parts):
     with semaphore:
@@ -90,7 +81,7 @@ def run_process(queue, results_queue, semaphore, main_logger, row_id, lamb, part
             omega_old = scipy_csr_to_torch_coo(whole_omega[parts[row_id][0]:parts[row_id][1],:], dtype=flt, device = device)
 
         main_logger.info(f"Process {row_id} started on {proc_id}")
-        _, finished = pyaccord_sp_block(torch.from_numpy(X).type(flt).to(device), lamb, cfg, logger, part = parts[row_id], omega_old = omega_old, label = row_id + cfg["label_start"], device = device)
+        _, finished = pyaccord(torch.from_numpy(X).type(flt).to(device), lamb, cfg, logger, part = parts[row_id], omega_old = omega_old, label = row_id + cfg["label_start"], device = device)
         main_logger.info(f"Process {row_id} finished on {proc_id}")
         results_queue.put((row_id, finished))
     #except Exception as ee:
@@ -116,7 +107,7 @@ if __name__ == "__main__":
             if cfg["resume_from_whole"] is not None:
                 whole_omega = sparse.load_npz(cfg["resume_from_whole"])
                 omega_old = scipy_csr_to_torch_coo(whole_omega, dtype=flt, device = device)
-            pyaccord_sp_block(torch.from_numpy(X).type(flt).to(device), lam, cfg, logger, omega_old = omega_old, device = device)
+            pyaccord(torch.from_numpy(X).type(flt).to(device), lam, cfg, logger, part = (cfg["row_min"], cfg["row_max"]), omega_old = omega_old, device = device)
         else:
             try:
                 main_logger = setup_main_logger(args.log)

@@ -11,3 +11,6 @@ def torch_coo_to_scipy_csr(coo):
     values = coo.values().numpy()
     shape = coo.shape
     return sparse.csr_matrix((values, (indices[0], indices[1])), shape = shape)
+
+def non_negative(x):
+    return x if x >= 0 else 0

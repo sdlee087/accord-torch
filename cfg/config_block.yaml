@@ -1,10 +1,12 @@
 data_file: "data/C_Xhp_5k.npy"
 out_file: "out/out"
 
+# intra-penalty, inter-penalty
 l1:
-  - 0.1
-  #- 0.08
-  #- 0.06
+  - 0.1, 0.05
+split:
+  - 2000
+  - 4000
 tau_init: 0.5
 eps: 1e-7
 
@@ -12,16 +14,17 @@ max_outer: 10
 max_inner: 5
 
 #cfg for big data
-#row_min: 0
-#row_max: 5000
-row_divide: 0
+# row_min: 1000
+# row_max: 2000
+# row_divide: 1
 total_process: 0
 # label_start: 0
 
 log_file: log/out
 log_interval: 1
 
-# resume:
-# resume_from_whole: 
+resume:
+# resume_from_whole: omics_500k/omega72.npz
+resume_from_prev: False
 CUDA: False
-float64: True
+float64: False
