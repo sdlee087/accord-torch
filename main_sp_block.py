@@ -95,33 +95,35 @@ def run_process(queue, results_queue, semaphore, main_logger, row_id, lamb, part
 
 if __name__ == "__main__":
     lambs = cfg["l1"]
-    for lamb in lambs:
-        lam = tuple(float(item.strip()) for item in lamb.split(','))
-        if cfg["row_divide"] == 0:
-            X = np.load(cfg["data_file"])
+    if cfg["row_divide"] == 0:
+        X = np.load(cfg["data_file"])
+        device = torch.device(f"cuda" if cfg["CUDA"] and torch.cuda.is_available() else "cpu")
+        for lamb in lambs:
+            lam = tuple(float(item.strip()) for item in lamb.split(','))
             logger = setup_logger(cfg, lam[0], 0)
             if not is_stdout_in_logger(logger):
                 ch = logging.StreamHandler(sys.stdout)
                 ch.setLevel(logging.DEBUG)
                 logger.addHandler(ch)
             logger.info("Start Time: %s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-            device = torch.device(f"cuda" if cfg["CUDA"] and torch.cuda.is_available() else "cpu")
             omega_old = None
             if cfg["resume_from_whole"] is not None:
                 whole_omega = sparse.load_npz(cfg["resume_from_whole"])
                 omega_old = scipy_csr_to_torch_coo(whole_omega, dtype=flt, device = device)
             pyaccord(torch.from_numpy(X).type(flt).to(device), lam, cfg, logger, part = (cfg["row_min"], cfg["row_max"]), omega_old = omega_old, device = device)
-        else:
-            try:
-                main_logger = setup_main_logger(args.log)
-            except AttributeError:
-                main_logger = setup_main_logger()
-            mp.set_start_method('spawn')
-            proc_queue = mp.Queue()
-            for i in range(cfg["total_process"]):
-                proc_queue.put(i)
-            processes = []
-            semaphore = mp.Semaphore(cfg["total_process"])
+    else:
+        try:
+            main_logger = setup_main_logger(args.log)
+        except AttributeError:
+            main_logger = setup_main_logger()
+        mp.set_start_method('spawn')
+        proc_queue = mp.Queue()
+        for i in range(cfg["total_process"]):
+            proc_queue.put(i)
+        processes = []
+        semaphore = mp.Semaphore(cfg["total_process"])
+        for lamb in lambs:
+            lam = tuple(float(item.strip()) for item in lamb.split(','))
             main_logger.info("Start Time: %s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             processes = []
             results_queue = mp.Queue()
