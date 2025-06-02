@@ -330,8 +330,6 @@ def pyaccord_sp_debias(X, lamb, cfg, logger, part = (0,0), omega_old = None, lab
     flt = torch.float64 if cfg["float64"] else torch.float32
 
     n, p = X.shape
-    split = cfg["split"]
-    split = torch.tensor([0] + split + [p], device = device)
 
     # compute for all entries in default
     d_off = 0
@@ -346,7 +344,7 @@ def pyaccord_sp_debias(X, lamb, cfg, logger, part = (0,0), omega_old = None, lab
     XT = X.transpose(0,1)
     if omega_old is None:
         #if cfg["resume"] is not None:
-        omega_old = torch.from_numpy(sparse.load_npz("%s_%s.npz" % (cfg["resume"], label)).todense()).to(dtype = flt, device = device)
+        omega_old = scipy_csr_to_torch_coo(sparse.load_npz("%s_%s.npz" % (cfg["debias"], label)), dtype = flt, device = device).coalesce()
 
     lamb_mat = lamb[0] * torch.ones(b_size, p, dtype=flt, device = device)
     inds = omega_old.indices()

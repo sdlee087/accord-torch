@@ -5,7 +5,7 @@ import torch.multiprocessing as mp
 import argparse, yaml, logging, sys
 from datetime import datetime
 
-from src.pyaccord import pyaccord_sp, pyaccord_sp_block
+from src.pyaccord import pyaccord_sp, pyaccord_sp_block, pyaccord_sp_debias
 from src.logger import setup_logger, setup_main_logger, is_stdout_in_logger
 from src.util import scipy_csr_to_torch_coo
 
@@ -22,6 +22,7 @@ DEFAULT_CONFIG={
     "row_max": 0,
     "label_start": 0,
     "log_interval": 1,
+    "debias": None,
     "resume": None,
     "resume_from_whole": None,
     "split": None,
@@ -41,10 +42,12 @@ with open(args.config) as f:
 cfg = {**DEFAULT_CONFIG, **config}
 flt = torch.float64 if cfg["float64"] else torch.float32
 
-if cfg["split"] is None:
-    pyaccord = pyaccord_sp
-else:
+if cfg["split"] is not None:
     pyaccord = pyaccord_sp_block
+elif cfg["debias"] is not None:
+    pyaccord = pyaccord_sp_debias
+else:
+    pyaccord = pyaccord_sp
 
 def partition_range(start, stop, num_partitions):
     """

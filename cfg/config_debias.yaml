@@ -1,0 +1,27 @@
+data_file: "data/C_Xhp_5k.npy"
+out_file: "out/out_deb"
+
+# zero penalty, non-zero penalty
+l1:
+  - 100, 0.001
+tau_init: 0.5
+eps: 1e-7
+
+max_outer: 10
+max_inner: 5
+
+#cfg for big data
+# row_min: 1000
+# row_max: 2000
+# row_divide: 1
+total_process: 0
+# label_start: 0
+
+log_file: log/out
+log_interval: 1
+
+debias: out/out_10
+#resume: out/out_10_0.npz
+resume_from_prev: False
+CUDA: False
+float64: False
